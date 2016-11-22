@@ -16,7 +16,10 @@ import android.view.View;
 import android.view.Window;
 import android.widget.Button;
 import android.widget.ImageButton;
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdView;
 
+import com.google.android.gms.ads.MobileAds;
 import com.google.android.gms.drive.internal.StringListResponse;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -57,6 +60,10 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         route = "#";
+        MobileAds.initialize(getApplicationContext(), getString(R.string.banner_ad_unit_id));
+        AdView mAdView = (AdView) findViewById(R.id.adView);
+        AdRequest adRequest = new AdRequest.Builder().build();
+        mAdView.loadAd(adRequest);
 
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
@@ -108,11 +115,15 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                             HashMap<String, Object> x = (HashMap<String, Object>) pair.getValue();
                             String latitude = (String) x.get("latitude");
                             String longitude = (String) x.get("longitude");
+                            String id = (String) x.get("id");
+                            String code = (String) x.get("code");
                             Marker retMarker = map.addMarker(new MarkerOptions()
                                     .position(new LatLng(Double.parseDouble(latitude), Double.parseDouble(longitude)))
                                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.circle_stop_green))
-                                    .anchor(0.5f,0.5f)
-                                    .title(""));
+                                    .anchor(0.5f,0.5f));
+                            retMarker.setTag(code);
+                            retMarker.setTitle("stopName");
+                            retMarker.setSnippet("Times");
                             stopMarkers.add(retMarker);
                             it.remove();
                         }
@@ -140,10 +151,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                     for(DataSnapshot route : dataSnapshot.getChildren()) {
                         MarkerOptions marker = new MarkerOptions()
                                 .position(new LatLng(Double.parseDouble(route.child("latitude").getValue().toString()), Double.parseDouble(route.child("longitude").getValue().toString())))
-                                .title("bus")
                                 .icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green));
                         Marker retMarker = map.addMarker(marker);
-
+                        retMarker.setTag("Bus");
                         currentBusMarkers.add(retMarker);
                     }
                 }
@@ -180,11 +190,48 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
         map.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
             @Override
-            public boolean onMarkerClick(Marker marker) {
-                if(marker.getTitle().equals("bus")) {
+            public boolean onMarkerClick(final Marker marker) {
+                if(marker.getTag().equals("bus")) {
                     return true;
                 }
-                //CODE TO SET MARKER TITLE TO NEXT 3 STOP TIMES
+
+
+
+                final Query stopTimeQuery = fbStops.orderByKey().equalTo(route);
+                final ValueEventListener stopTimeListener = new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot dataSnapshot) {
+                        if(dataSnapshot.getValue() != null) {
+                            for(DataSnapshot stopList : dataSnapshot.getChildren()) {
+                                HashMap<String, HashMap<String, String> > stops = (HashMap<String, HashMap<String, String> >) stopList.getValue();
+                                Iterator it = stops.entrySet().iterator();
+                                while (it.hasNext()) {
+                                    Map.Entry pair = (Map.Entry)it.next();
+                                    String name = (String)pair.getKey();
+                                    if(name.equals(marker.getTag())) {
+                                        HashMap<String, Object> x = (HashMap<String, Object>) pair.getValue();
+                                        String time1 = (String) x.get("1");
+                                        String time2 = (String) x.get("2");
+                                        String time3 = (String) x.get("3");
+                                        String code = (String) x.get("code");
+                                        marker.setTitle(code);
+                                        marker.setSnippet(time1);
+                                        marker.showInfoWindow();
+                                        it.remove();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
+
+                    }
+                };
+                stopTimeQuery.addListenerForSingleValueEvent(stopTimeListener);
+
+
+
                 return false;
             }
         });
