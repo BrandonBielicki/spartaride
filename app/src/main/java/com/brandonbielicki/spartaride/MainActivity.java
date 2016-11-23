@@ -124,7 +124,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.circle_stop_green))
                                     .anchor(0.5f,0.5f));
                             retMarker.setTag(code);
-                            retMarker.setTitle("Stop Name");
+                            retMarker.setTitle("Arriving at:");
                             retMarker.setSnippet("No Time Available");
                             stopMarkers.add(retMarker);
                             it.remove();
@@ -209,7 +209,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                                 for(DataSnapshot stop:stops.getChildren()){
                                     if(stop.child("stop_id").getValue().toString().equals(marker.getTag())){
                                         stopsArray.add(stop.child("arrival").getValue().toString());
-                                        marker.setTitle(stop.child("stop_id").getValue().toString());
+                                        //marker.setTitle(stop.child("stop_id").getValue().toString());
                                     }
                                 }
                             }
@@ -218,7 +218,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                             String currentTime = (String) DateFormat.format("hh:mm", new java.util.Date());
                             if(stopsArray.size() >= 1) {
                                 marker.setSnippet(stopsArray.get(0));
-                                if(stopsArray.get(0).compareTo(currentTime) > 0 && stopsArray.size() > 1 ) {
+                                if(stopsArray.get(0).compareTo(currentTime) < 0 && stopsArray.size() > 1 ) {
                                     marker.setSnippet(stopsArray.get(1));
                                 }
                             }
