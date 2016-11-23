@@ -11,6 +11,7 @@ import android.support.v4.app.FragmentTransaction;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.format.DateFormat;
 import android.util.Log;
 import android.view.View;
 import android.view.Window;
@@ -38,6 +39,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -122,8 +124,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.circle_stop_green))
                                     .anchor(0.5f,0.5f));
                             retMarker.setTag(code);
-                            retMarker.setTitle("stopName");
-                            retMarker.setSnippet("Times");
+                            retMarker.setTitle("Stop Name");
+                            retMarker.setSnippet("No Time Available");
                             stopMarkers.add(retMarker);
                             it.remove();
                         }
@@ -195,34 +197,35 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                     return true;
                 }
 
-
-
-                final Query stopTimeQuery = fbStops.orderByKey().equalTo(route);
+                final Query stopTimeQuery = fbTrips.orderByChild("route").equalTo(route);
                 final ValueEventListener stopTimeListener = new ValueEventListener() {
+
                     @Override
                     public void onDataChange(DataSnapshot dataSnapshot) {
+                        ArrayList<String> stopsArray = new ArrayList<String>();
                         if(dataSnapshot.getValue() != null) {
-                            for(DataSnapshot stopList : dataSnapshot.getChildren()) {
-                                HashMap<String, HashMap<String, String> > stops = (HashMap<String, HashMap<String, String> >) stopList.getValue();
-                                Iterator it = stops.entrySet().iterator();
-                                while (it.hasNext()) {
-                                    Map.Entry pair = (Map.Entry)it.next();
-                                    String name = (String)pair.getKey();
-                                    if(name.equals(marker.getTag())) {
-                                        HashMap<String, Object> x = (HashMap<String, Object>) pair.getValue();
-                                        String time1 = (String) x.get("1");
-                                        String time2 = (String) x.get("2");
-                                        String time3 = (String) x.get("3");
-                                        String code = (String) x.get("code");
-                                        marker.setTitle(code);
-                                        marker.setSnippet(time1);
-                                        marker.showInfoWindow();
-                                        it.remove();
+                            for(DataSnapshot bus : dataSnapshot.getChildren()) {
+                                DataSnapshot stops = bus.child("stops");
+                                for(DataSnapshot stop:stops.getChildren()){
+                                    if(stop.child("stop_id").getValue().toString().equals(marker.getTag())){
+                                        stopsArray.add(stop.child("arrival").getValue().toString());
+                                        marker.setTitle(stop.child("stop_id").getValue().toString());
                                     }
                                 }
                             }
+                            java.util.Collections.sort(stopsArray);
+
+                            String currentTime = (String) DateFormat.format("hh:mm", new java.util.Date());
+                            if(stopsArray.size() >= 1) {
+                                marker.setSnippet(stopsArray.get(0));
+                                if(stopsArray.get(0).compareTo(currentTime) > 0 && stopsArray.size() > 1 ) {
+                                    marker.setSnippet(stopsArray.get(1));
+                                }
+                            }
+                            marker.showInfoWindow();
                         }
                     }
+
                     @Override
                     public void onCancelled(DatabaseError databaseError) {
 
