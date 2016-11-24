@@ -154,6 +154,33 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                         MarkerOptions marker = new MarkerOptions()
                                 .position(new LatLng(Double.parseDouble(route.child("latitude").getValue().toString()), Double.parseDouble(route.child("longitude").getValue().toString())))
                                 .icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green));
+                        String bearing = route.child("bearing").getValue().toString();
+                        switch (bearing) {
+                            case "0":
+                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_0));
+                                break;
+                            case "45.0":
+                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_45));
+                                break;
+                            case "90.0":
+                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_90));
+                                break;
+                            case "135.0":
+                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_135));
+                                break;
+                            case "180.0":
+                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_180));
+                                break;
+                            case "225.0":
+                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_225));
+                                break;
+                            case "270.0":
+                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_270));
+                                break;
+                            case "315.0":
+                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_315));
+                                break;
+                        }
                         Marker retMarker = map.addMarker(marker);
                         retMarker.setTag("Bus");
                         currentBusMarkers.add(retMarker);
@@ -187,6 +214,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 .zoom(15)
                 .build();
         googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+        googleMap.getUiSettings().setRotateGesturesEnabled(false);
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             googleMap.setMyLocationEnabled(true);
         }
@@ -209,7 +237,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                                 for(DataSnapshot stop:stops.getChildren()){
                                     if(stop.child("stop_id").getValue().toString().equals(marker.getTag())){
                                         stopsArray.add(stop.child("arrival").getValue().toString());
-                                        //marker.setTitle(stop.child("stop_id").getValue().toString());
                                     }
                                 }
                             }
