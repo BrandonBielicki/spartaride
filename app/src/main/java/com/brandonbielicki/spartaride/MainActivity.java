@@ -42,6 +42,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     FirebaseDatabase database = FirebaseDatabase.getInstance();
     DatabaseReference fbTrips = database.getReference("trips");
     DatabaseReference fbStops = database.getReference("stops");
+    DatabaseReference fbBuses = database.getReference("buses");
     private Button routesButton;
     private ImageButton toggleStopButton;
     private ArrayList<Marker> currentBusMarkers = new ArrayList();
@@ -135,7 +136,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         stopsQuery.addListenerForSingleValueEvent(stopsListener);
 
         //Event listener for trips where "route" is equal to currently selected route
-        final Query routesQuery = fbTrips.orderByChild("route").equalTo(route);
+        final Query routesQuery = fbBuses.orderByChild("route").equalTo(route);
         final ValueEventListener routesListener = new ValueEventListener() {
 
             @Override
