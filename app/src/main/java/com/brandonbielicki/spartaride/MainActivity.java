@@ -1,27 +1,20 @@
 package com.brandonbielicki.spartaride;
 
-import android.*;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentActivity;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.app.FragmentActivity;
+import android.support.v4.content.ContextCompat;
 import android.text.format.DateFormat;
-import android.util.Log;
 import android.view.View;
-import android.view.Window;
 import android.widget.Button;
 import android.widget.ImageButton;
+
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdView;
-
 import com.google.android.gms.ads.MobileAds;
-import com.google.android.gms.drive.internal.StringListResponse;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapFragment;
@@ -31,7 +24,6 @@ import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -39,7 +31,6 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -101,7 +92,10 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     public void displayRoute(String route){
+        //Update route button to display currently selected route
         routesButton.setText(route);
+
+        //Event listener for but stop markers
         final Query stopsQuery = fbStops.orderByKey().equalTo(route);
         final ValueEventListener stopsListener = new ValueEventListener() {
             @Override
@@ -123,7 +117,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                                     .position(new LatLng(Double.parseDouble(latitude), Double.parseDouble(longitude)))
                                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.circle_stop_green))
                                     .anchor(0.5f,0.5f));
-                            retMarker.setTag(code);
+                            retMarker.setTag(id);
                             retMarker.setTitle("Arriving at:");
                             retMarker.setSnippet("No Time Available");
                             stopMarkers.add(retMarker);
@@ -140,6 +134,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         };
         stopsQuery.addListenerForSingleValueEvent(stopsListener);
 
+        //Event listener for trips where "route" is equal to currently selected route
         final Query routesQuery = fbTrips.orderByChild("route").equalTo(route);
         final ValueEventListener routesListener = new ValueEventListener() {
 
@@ -156,7 +151,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                                 .icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green));
                         String bearing = route.child("bearing").getValue().toString();
                         switch (bearing) {
-                            case "0":
+                            case "0.0":
                                 marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_0));
                                 break;
                             case "45.0":
@@ -183,6 +178,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                         }
                         Marker retMarker = map.addMarker(marker);
                         retMarker.setTag("Bus");
+                        //retMarker.setTitle(route.getKey());
                         currentBusMarkers.add(retMarker);
                     }
                 }
@@ -195,6 +191,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         };
         routesQuery.addValueEventListener(routesListener);
 
+        //When route select button is clicked, clear map icons and open route selection
         routesButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -218,10 +215,13 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             googleMap.setMyLocationEnabled(true);
         }
+
+        //Event listener for clicking on map markers, bus or stops
         map.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
             @Override
             public boolean onMarkerClick(final Marker marker) {
                 if(marker.getTag().equals("bus")) {
+                    //marker.showInfoWindow();
                     return true;
                 }
 
@@ -235,7 +235,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                             for(DataSnapshot bus : dataSnapshot.getChildren()) {
                                 DataSnapshot stops = bus.child("stops");
                                 for(DataSnapshot stop:stops.getChildren()){
-                                    if(stop.child("stop_id").getValue().toString().equals(marker.getTag())){
+                                    if(stop.child("stop_id").getValue().toString().equals(marker.getTag().toString())){
                                         stopsArray.add(stop.child("arrival").getValue().toString());
                                     }
                                 }
@@ -268,7 +268,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         displayRoute(route);
     }
-
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
