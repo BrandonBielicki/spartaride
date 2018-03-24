@@ -33,7 +33,11 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -94,7 +98,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-    public void stopsUpdateEvent(DataSnapshot dataSnapshot){
+    public void displayBusStops(DataSnapshot dataSnapshot){
         stopMarkers.clear();
         if(dataSnapshot.getValue() != null) {
             for(DataSnapshot stopList : dataSnapshot.getChildren()) {
@@ -113,7 +117,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                             .icon(BitmapDescriptorFactory.fromResource(R.drawable.circle_stop_green))
                             .anchor(0.5f,0.5f));
                     retMarker.setTag(id);
-                    retMarker.setTitle("Arriving at:");
+                    retMarker.setTitle("Arriving at stop #" + id + " at:");
                     retMarker.setSnippet("No Time Available");
                     stopMarkers.add(retMarker);
                     it.remove();
@@ -121,13 +125,12 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             }
         }
     }
-
-    public void addStopsUpdateListener() {
+    public void getBusStops() {
         final Query stopsQuery = fbStops.orderByKey().equalTo(route);
         final ValueEventListener stopsListener = new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                stopsUpdateEvent(dataSnapshot);
+                displayBusStops(dataSnapshot);
             }
 
             @Override
@@ -239,7 +242,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         routesButton.setText(route);
 
         //Event listener for bus stop markers
-        addStopsUpdateListener();
+        getBusStops();
 
         //Event listener for buses where "route" is equal to currently selected route
         final Query busesQuery = fbBuses.orderByKey().equalTo(route);
@@ -257,6 +260,64 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 startActivityForResult(intent, 1);
             }
         });
+    }
+
+    public String getCurrentTime() {
+        Calendar calendar = Calendar.getInstance();
+        SimpleDateFormat mdformat = new SimpleDateFormat("hh:mm");
+        String time = mdformat.format(calendar.getTime());
+        return time;
+    }
+
+    public ValueEventListener createStopClickListener(final Marker marker) {
+        final ValueEventListener stopTimeListener = new ValueEventListener() {
+
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                stopClickEvent(dataSnapshot, marker);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        };
+        return stopTimeListener;
+    }
+    public void stopClickEvent(DataSnapshot dataSnapshot, Marker marker) {
+        ArrayList<String> stopsArray = new ArrayList<>();
+        for(DataSnapshot stop_id : dataSnapshot.getChildren()) {
+            for(DataSnapshot trip:stop_id.getChildren()){
+                String arrival_time = trip.child("arrival").getValue().toString();
+                int delay = Integer.parseInt(trip.child("delay").getValue().toString());
+                SimpleDateFormat dateFormat = new SimpleDateFormat("hh:mm");
+                Calendar calendar = Calendar.getInstance();
+                try {
+                    Date parsedDate = dateFormat.parse(arrival_time);
+                    calendar.setTime(parsedDate);
+                    calendar.add(Calendar.SECOND ,delay);
+                    stopsArray.add(dateFormat.format(calendar.getTime()));
+                } catch (ParseException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        java.util.Collections.sort(stopsArray);
+        String currentTime = getCurrentTime();
+        if(stopsArray.size() >= 1) {
+
+            if(stopsArray.get(0).compareTo(currentTime) < 0 ) {
+                if(stopsArray.size() > 1) {
+                    marker.setSnippet(stopsArray.get(1));
+                } else {
+                    marker.setSnippet("No Time Available");
+                }
+            } else {
+                marker.setSnippet(stopsArray.get(0));
+            }
+        }
+        marker.showInfoWindow();
     }
 
     @Override
@@ -281,43 +342,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                     return true;
                 }
 
-                final Query stopTimeQuery = fbTrips.orderByChild("route").equalTo(route);
-                final ValueEventListener stopTimeListener = new ValueEventListener() {
-
-                    @Override
-                    public void onDataChange(DataSnapshot dataSnapshot) {
-                        ArrayList<String> stopsArray = new ArrayList<String>();
-                        if(dataSnapshot.getValue() != null) {
-                            for(DataSnapshot bus : dataSnapshot.getChildren()) {
-                                DataSnapshot stops = bus.child("stops");
-                                for(DataSnapshot stop:stops.getChildren()){
-                                    if(stop.child("stop_id").getValue().toString().equals(marker.getTag().toString())){
-                                        stopsArray.add(stop.child("arrival").getValue().toString());
-                                    }
-                                }
-                            }
-                            java.util.Collections.sort(stopsArray);
-
-                            String currentTime = (String) DateFormat.format("hh:mm", new java.util.Date());
-                            if(stopsArray.size() >= 1) {
-                                marker.setSnippet(stopsArray.get(0));
-                                if(stopsArray.get(0).compareTo(currentTime) < 0 && stopsArray.size() > 1 ) {
-                                    marker.setSnippet(stopsArray.get(1));
-                                }
-                            }
-                            marker.showInfoWindow();
-                        }
-                    }
-
-                    @Override
-                    public void onCancelled(DatabaseError databaseError) {
-
-                    }
-                };
-                stopTimeQuery.addListenerForSingleValueEvent(stopTimeListener);
-
-
-
+                final Query stopTimeQuery = fbTrips.child(route).orderByKey().equalTo(marker.getTag().toString());
+                ValueEventListener stopClickListener = createStopClickListener(marker);
+                stopTimeQuery.addListenerForSingleValueEvent(stopClickListener);
                 return false;
             }
         });
