@@ -8,6 +8,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.content.ContextCompat;
 import android.text.format.DateFormat;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
@@ -24,6 +25,7 @@ import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -92,40 +94,40 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-    public void displayRoute(String route){
-        //Update route button to display currently selected route
-        routesButton.setText(route);
+    public void stopsUpdateEvent(DataSnapshot dataSnapshot){
+        stopMarkers.clear();
+        if(dataSnapshot.getValue() != null) {
+            for(DataSnapshot stopList : dataSnapshot.getChildren()) {
+                HashMap<String, HashMap<String, String> > stops = (HashMap<String, HashMap<String, String> >) stopList.getValue();
+                Iterator it = stops.entrySet().iterator();
+                while (it.hasNext()) {
+                    Map.Entry pair = (Map.Entry)it.next();
+                    String name = (String)pair.getKey();
+                    HashMap<String, Object> x = (HashMap<String, Object>) pair.getValue();
+                    String latitude = (String) x.get("latitude");
+                    String longitude = (String) x.get("longitude");
+                    String id = (String) x.get("id");
+                    String code = (String) x.get("description");
+                    Marker retMarker = map.addMarker(new MarkerOptions()
+                            .position(new LatLng(Double.parseDouble(latitude), Double.parseDouble(longitude)))
+                            .icon(BitmapDescriptorFactory.fromResource(R.drawable.circle_stop_green))
+                            .anchor(0.5f,0.5f));
+                    retMarker.setTag(id);
+                    retMarker.setTitle("Arriving at:");
+                    retMarker.setSnippet("No Time Available");
+                    stopMarkers.add(retMarker);
+                    it.remove();
+                }
+            }
+        }
+    }
 
-        //Event listener for but stop markers
+    public void addStopsUpdateListener() {
         final Query stopsQuery = fbStops.orderByKey().equalTo(route);
         final ValueEventListener stopsListener = new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                stopMarkers.clear();
-                if(dataSnapshot.getValue() != null) {
-                    for(DataSnapshot stopList : dataSnapshot.getChildren()) {
-                        HashMap<String, HashMap<String, String> > stops = (HashMap<String, HashMap<String, String> >) stopList.getValue();
-                        Iterator it = stops.entrySet().iterator();
-                        while (it.hasNext()) {
-                            Map.Entry pair = (Map.Entry)it.next();
-                            String name = (String)pair.getKey();
-                            HashMap<String, Object> x = (HashMap<String, Object>) pair.getValue();
-                            String latitude = (String) x.get("latitude");
-                            String longitude = (String) x.get("longitude");
-                            String id = (String) x.get("id");
-                            String code = (String) x.get("code");
-                            Marker retMarker = map.addMarker(new MarkerOptions()
-                                    .position(new LatLng(Double.parseDouble(latitude), Double.parseDouble(longitude)))
-                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.circle_stop_green))
-                                    .anchor(0.5f,0.5f));
-                            retMarker.setTag(id);
-                            retMarker.setTitle("Arriving at:");
-                            retMarker.setSnippet("No Time Available");
-                            stopMarkers.add(retMarker);
-                            it.remove();
-                        }
-                    }
-                }
+                stopsUpdateEvent(dataSnapshot);
             }
 
             @Override
@@ -134,53 +136,60 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             }
         };
         stopsQuery.addListenerForSingleValueEvent(stopsListener);
+    }
 
-        //Event listener for trips where "route" is equal to currently selected route
-        final Query routesQuery = fbBuses.orderByChild("route").equalTo(route);
-        final ValueEventListener routesListener = new ValueEventListener() {
+    public void busUpdateEvent(DataSnapshot dataSnapshot) {
+        if(dataSnapshot.getValue() != null) {
+            for(Marker item : currentBusMarkers) {
+                item.remove();
+            }
+            currentBusMarkers.clear();
+            for(DataSnapshot route : dataSnapshot.getChildren()) {
+                MarkerOptions marker = new MarkerOptions()
+                        .position(new LatLng(Double.parseDouble(route.child("latitude").getValue().toString()), Double.parseDouble(route.child("longitude").getValue().toString())))
+                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green));
+                String bearing = route.child("bearing").getValue().toString();
+                switch (bearing) {
+                    case "0.0":
+                        marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_0));
+                        break;
+                    case "45.0":
+                        marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_45));
+                        break;
+                    case "90.0":
+                        marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_90));
+                        break;
+                    case "135.0":
+                        marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_135));
+                        break;
+                    case "180.0":
+                        marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_180));
+                        break;
+                    case "225.0":
+                        marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_225));
+                        break;
+                    case "270.0":
+                        marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_270));
+                        break;
+                    case "315.0":
+                        marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_315));
+                        break;
+                }
+                Marker retMarker = map.addMarker(marker);
+                retMarker.setTag("Bus");
+                //retMarker.setTitle(route.getKey());
+                currentBusMarkers.add(retMarker);
+            }
+        }
+    }
 
+    public ValueEventListener getInitialBusPositionsListener() {
+        final ValueEventListener busesListener = new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
                 if(dataSnapshot.getValue() != null) {
-                    for(Marker item : currentBusMarkers) {
-                        item.remove();
-                    }
-                    currentBusMarkers.clear();
                     for(DataSnapshot route : dataSnapshot.getChildren()) {
-                        MarkerOptions marker = new MarkerOptions()
-                                .position(new LatLng(Double.parseDouble(route.child("latitude").getValue().toString()), Double.parseDouble(route.child("longitude").getValue().toString())))
-                                .icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green));
-                        String bearing = route.child("bearing").getValue().toString();
-                        switch (bearing) {
-                            case "0.0":
-                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_0));
-                                break;
-                            case "45.0":
-                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_45));
-                                break;
-                            case "90.0":
-                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_90));
-                                break;
-                            case "135.0":
-                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_135));
-                                break;
-                            case "180.0":
-                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_180));
-                                break;
-                            case "225.0":
-                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_225));
-                                break;
-                            case "270.0":
-                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_270));
-                                break;
-                            case "315.0":
-                                marker.icon(BitmapDescriptorFactory.fromResource(R.drawable.marker_bus_green_315));
-                                break;
-                        }
-                        Marker retMarker = map.addMarker(marker);
-                        retMarker.setTag("Bus");
-                        //retMarker.setTitle(route.getKey());
-                        currentBusMarkers.add(retMarker);
+                        busUpdateEvent(route);
                     }
                 }
             }
@@ -190,14 +199,60 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
             }
         };
-        routesQuery.addValueEventListener(routesListener);
+        return busesListener;
+    }
+
+    public ChildEventListener createBusUpdateListener() {
+
+        final ChildEventListener busesListener = new ChildEventListener() {
+
+            @Override
+            public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+
+            }
+
+            @Override
+            public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+                busUpdateEvent(dataSnapshot);
+            }
+
+            @Override
+            public void onChildRemoved(DataSnapshot dataSnapshot) {
+
+            }
+
+            @Override
+            public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        };
+        return busesListener;
+    }
+
+    public void displayRoute(String route){
+        //Update route button to display currently selected route
+        routesButton.setText(route);
+
+        //Event listener for bus stop markers
+        addStopsUpdateListener();
+
+        //Event listener for buses where "route" is equal to currently selected route
+        final Query busesQuery = fbBuses.orderByKey().equalTo(route);
+        final ChildEventListener busesListener = createBusUpdateListener();
+        busesQuery.addChildEventListener(busesListener);
+        busesQuery.addListenerForSingleValueEvent(getInitialBusPositionsListener());
 
         //When route select button is clicked, clear map icons and open route selection
         routesButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 map.clear();
-                routesQuery.removeEventListener(routesListener);
+                busesQuery.removeEventListener(busesListener);
                 Intent intent = new Intent(getApplicationContext(), RouteSelect.class);
                 startActivityForResult(intent, 1);
             }
