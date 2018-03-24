@@ -295,7 +295,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 try {
                     Date parsedDate = dateFormat.parse(arrival_time);
                     calendar.setTime(parsedDate);
-                    calendar.add(Calendar.SECOND ,delay);
+                    //calendar.add(Calendar.SECOND ,delay);
                     stopsArray.add(dateFormat.format(calendar.getTime()));
                 } catch (ParseException e) {
                     e.printStackTrace();
